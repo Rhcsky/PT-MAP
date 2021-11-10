@@ -12,7 +12,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+from torch.cuda.amp import autocast, GradScaler
 from torch.nn import DataParallel
+from torch.nn.utils import clip_grad_norm_
 
 import configs
 import res_mixup_model
@@ -158,6 +160,7 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
 
     lossfn = nn.CrossEntropyLoss()
     max_acc = 0
+    scaler = GradScaler()
 
     print("stop_epoch", start_epoch, stop_epoch)
 
@@ -190,14 +193,19 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
             a_ = a_.to('cuda')
 
             f, scores = model.forward(x_)
-            rotate_scores = rotate_classifier(f)
+            with autocast():
+                rotate_scores = rotate_classifier(f)
 
-            optimizer.zero_grad()
             rloss = lossfn(rotate_scores, a_)
             closs = lossfn(scores, y_)
             loss = closs + rloss
-            loss.backward()
-            optimizer.step()
+
+            optimizer.zero_grad()
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            clip_grad_norm_(model.parameters(), 1)
+            scaler.step(optimizer)
+            scaler.update()
 
             avg_loss = avg_loss + closs.data.item()
             avg_rloss = avg_rloss + rloss.data.item()

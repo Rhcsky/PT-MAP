@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+from torch.cuda.amp import autocast
 
 act = torch.nn.ReLU()
 
@@ -28,6 +29,7 @@ class BasicBlock(nn.Module):
         self.convShortcut = (not self.equalInOut) and nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride,
                                                                 padding=0, bias=False) or None
 
+    @autocast()
     def forward(self, x):
         if not self.equalInOut:
             x = self.relu1(self.bn1(x))
@@ -53,6 +55,7 @@ class distLinear(nn.Module):
         else:
             self.scale_factor = 10;  # in omniglot, a larger scale factor is required to handle >1000 output classes.
 
+    @autocast()
     def forward(self, x):
         x_norm = torch.norm(x, p=2, dim=1).unsqueeze(1).expand_as(x)
         x_normalized = x.div(x_norm + 0.00001)
@@ -77,6 +80,7 @@ class NetworkBlock(nn.Module):
             layers.append(block(i == 0 and in_planes or out_planes, out_planes, i == 0 and stride or 1, dropRate))
         return nn.Sequential(*layers)
 
+    @autocast()
     def forward(self, x):
         return self.layer(x)
 
@@ -153,6 +157,7 @@ class WideResNet(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
+    @autocast()
     def forward(self, x, target=None, mixup=False, mixup_hidden=True, mixup_alpha=None, lam=0.4):
         if target is not None:
             if mixup_hidden:
