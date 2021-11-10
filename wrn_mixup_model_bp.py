@@ -116,7 +116,8 @@ def mixup_data(x, y, lam):
 
 
 class WideResNet(nn.Module):
-    def __init__(self, depth=28, widen_factor=10, num_classes=200, loss_type='dist', per_img_std=False, stride=1):
+    def __init__(self, depth=28, widen_factor=10, num_classes=200, loss_type='dist', per_img_std=False, stride=1,
+                 bp_channel=128):
         dropRate = 0.5
         flatten = True
         super(WideResNet, self).__init__()
@@ -124,7 +125,6 @@ class WideResNet(nn.Module):
         assert ((depth - 4) % 6 == 0)
         n = (depth - 4) / 6
         block = BasicBlock
-        bp_channel = 128
 
         # 1st conv before any network block
         self.conv1 = nn.Conv2d(3, nChannels[0], kernel_size=3, stride=1,
@@ -231,7 +231,7 @@ def self_bilinear_pooling(x):
     return bilinear
 
 
-def wrn28_10(num_classes=200, loss_type='dist'):
+def wrn28_10(num_classes=200, loss_type='dist', bp_channel='128'):
     model = WideResNet(depth=28, widen_factor=10, num_classes=num_classes, loss_type=loss_type, per_img_std=False,
-                       stride=1)
+                       stride=1, bp_channel=bp_channel)
     return model
