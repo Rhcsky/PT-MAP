@@ -12,15 +12,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+from torch.nn import DataParallel
 
 import configs
 import res_mixup_model
-import wrn_mixup_model
+import wrn_mixup_model_bp
 from data.datamgr import SimpleDataManager
 from io_utils import parse_args, get_resume_file
-
-use_gpu = torch.cuda.is_available()
-image_size = 84
 
 
 def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, params, tmp):
@@ -34,7 +32,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
     elif params.model == 'ResNet18':
         rotate_classifier = nn.Sequential(nn.Linear(512, 4))
 
-    rotate_classifier.cuda()
+    rotate_classifier.to('cuda')
 
     if 'rotate' in tmp:
         print("loading rotate model")
@@ -55,11 +53,9 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
         rotate_loss = 0
         correct = 0
         total = 0
-        torch.cuda.empty_cache()
 
         for batch_idx, (inputs, targets) in enumerate(base_loader):
-            if use_gpu:
-                inputs, targets = inputs.cuda(), targets.cuda()
+            inputs, targets = inputs.to('cuda'), targets.to('cuda')
             lam = np.random.beta(params.alpha, params.alpha)
             f, outputs, target_a, target_b = model(inputs, targets, mixup_hidden=True, mixup_alpha=params.alpha,
                                                    lam=lam)
@@ -93,10 +89,9 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
             targets = Variable(torch.stack(targets_, 0))
             a_ = Variable(torch.stack(a_, 0))
 
-            if use_gpu:
-                inputs = inputs.cuda()
-                targets = targets.cuda()
-                a_ = a_.cuda()
+            inputs = inputs.to('cuda')
+            targets = targets.to('cuda')
+            a_ = a_.to('cuda')
 
             rf, outputs = model(inputs)
             rotate_outputs = rotate_classifier(rf)
@@ -110,7 +105,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
 
             optimizer.step()
 
-            if batch_idx % 100 == 0:
+            if batch_idx % 50 == 0:
                 print('{0}/{1}'.format(batch_idx, len(base_loader)),
                       'Loss: %.3f | Acc: %.3f%% | RotLoss: %.3f  '
                       % (train_loss / (batch_idx + 1),
@@ -129,8 +124,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
             correct = 0
             total = 0
             for batch_idx, (inputs, targets) in enumerate(base_loader_test):
-                if use_gpu:
-                    inputs, targets = inputs.cuda(), targets.cuda()
+                inputs, targets = inputs.to('cuda'), targets.to('cuda')
                 inputs, targets = Variable(inputs), Variable(targets)
                 f, outputs = model.forward(inputs)
                 loss = criterion(outputs, targets)
@@ -147,12 +141,11 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
 
 def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch, params, tmp):
     if params.model == 'WideResNet28_10':
-        rotate_classifier = nn.Sequential(nn.Linear(640, 4))
+        rotate_classifier = nn.Sequential(nn.Linear(128 ** 2, 4))
     elif params.model == 'ResNet18':
         rotate_classifier = nn.Sequential(nn.Linear(512, 4))
 
-    if use_gpu:
-        rotate_classifier.cuda()
+    rotate_classifier.to('cuda')
 
     if 'rotate' in tmp:
         print("loading rotate model")
@@ -192,10 +185,9 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
             y_ = Variable(torch.stack(y_, 0))
             a_ = Variable(torch.stack(a_, 0))
 
-            if use_gpu:
-                x_ = x_.cuda()
-                y_ = y_.cuda()
-                a_ = a_.cuda()
+            x_ = x_.to('cuda')
+            y_ = y_.to('cuda')
+            a_ = a_.to('cuda')
 
             f, scores = model.forward(x_)
             rotate_scores = rotate_classifier(f)
@@ -245,10 +237,9 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
                     y_ = Variable(torch.stack(y_, 0))
                     a_ = Variable(torch.stack(a_, 0))
 
-                    if use_gpu:
-                        x_ = x_.cuda()
-                        y_ = y_.cuda()
-                        a_ = a_.cuda()
+                    x_ = x_.to('cuda')
+                    y_ = y_.to('cuda')
+                    a_ = a_.to('cuda')
 
                     f, scores = model(x_)
                     rotate_scores = rotate_classifier(f)
@@ -260,16 +251,17 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
 
             print("Epoch {0} : Accuracy {1}, Rotate Accuracy {2}".format(epoch, (float(correct) * 100) / total,
                                                                          (float(rcorrect) * 100) / total))
-        torch.cuda.empty_cache()
 
     return model
 
 
 if __name__ == '__main__':
     params = parse_args('train')
-    params.resume = True
+    params.method = 'rotation'
+    params.resume = False
 
     params.dataset = 'cifar'
+    params.num_classes = 64
     image_size = 84
 
     base_file = configs.data_dir[params.dataset] + 'base.json'
@@ -283,13 +275,15 @@ if __name__ == '__main__':
     base_loader_test = base_datamgr_test.get_data_loader(base_file, aug=False)
 
     if params.model == 'WideResNet28_10':
-        model = wrn_mixup_model.wrn28_10(num_classes=params.num_classes)
+        model = wrn_mixup_model_bp.wrn28_10(num_classes=params.num_classes, loss_type='softmax')
     elif params.model == 'ResNet18':
         model = res_mixup_model.resnet18(num_classes=params.num_classes)
+    else:
+        raise ValueError()
 
     if params.method == 'S2M2_R':
-        # model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
-        model.cuda()
+        model = DataParallel(model)
+        model.to('cuda')
 
         if params.resume:
             resume_file = get_resume_file(params.checkpoint_dir)
@@ -303,6 +297,8 @@ if __name__ == '__main__':
             model_dict_load.update(state)
             model.load_state_dict(model_dict_load)
 
+            params.checkpoint_dir = os.path.join(params.checkpoint_dir, "BP")
+
         else:
             resume_rotate_file_dir = params.checkpoint_dir.replace("S2M2_R", "rotation")
             resume_file = get_resume_file(resume_rotate_file_dir)
@@ -313,24 +309,13 @@ if __name__ == '__main__':
             state = tmp['state']
             state_keys = list(state.keys())
 
-            # for i, key in enumerate(state_keys):
-            #     if "feature." in key:
-            #         newkey = key.replace("feature.","")  # an architecture model has attribute 'feature', load architecture feature to backbone by casting name from 'feature.trunk.xx' to 'trunk.xx'
-            #         state[newkey] = state.pop(key)
-            #     else:
-            #         state[key.replace("classifier.","linear.")] =  state[key]
-            #         state.pop(key)
-
             model.load_state_dict(state)
 
         model = train_s2m2(base_loader, base_loader_test, model, start_epoch, start_epoch + stop_epoch, params, {})
 
 
     elif params.method == 'rotation':
-        if use_gpu:
-            if torch.cuda.device_count() > 1:
-                model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
-            model.cuda()
+        model.to('cuda')
 
         if params.resume:
             resume_file = get_resume_file(params.checkpoint_dir)

@@ -1,14 +1,17 @@
 import os
 import pickle
+
 import numpy as np
 import torch
-# from tqdm import tqdm
-
 # ========================================================
 #   Usefull paths
-_datasetFeaturesFiles = {"miniimagenet": "./checkpoints/miniImagenet/WideResNet28_10_S2M2_R/last/output.plk",
+from tqdm import tqdm
+
+# from tqdm import tqdm
+
+_datasetFeaturesFiles = {"miniimagenet": "/data/FSLTask/miniImagenet/novel_features.plk",
                          "cub": "./checkpoints/CUB/WideResNet28_10_S2M2_R/last/output.plk",
-                         "cifar": "./checkpoints/cifar/WideResNet28_10_S2M2_R/last/output.plk",
+                         "cifar": "/data/FSLTask/cifar-fs/features.plk",
                          "cross": "./checkpoints/cross/WideResNet28_10_S2M2_R/last/output.plk"}
 _cacheDir = "./cache"
 _maxRuns = 10000
@@ -68,7 +71,7 @@ def loadDataSet(dsname):
     while labels.shape[0] > 0:
         indices = torch.where(dataset["labels"] == labels[0])[0]
         data = torch.cat([data, dataset["data"][indices, :]
-                          [:_min_examples].view(1, _min_examples, -1)], dim=0)
+        [:_min_examples].view(1, _min_examples, -1)], dim=0)
         indices = torch.where(labels != labels[0])[0]
         labels = labels[indices]
     print("Total of {:d} classes, {:d} elements each, with dimension {:d}\n".format(
@@ -85,12 +88,11 @@ def GenerateRun(iRun, cfg, regenRState=False, generate=True):
     dataset = None
     if generate:
         dataset = torch.zeros(
-            (cfg['ways'], cfg['shot']+cfg['queries'], data.shape[2]))
+            (cfg['ways'], cfg['shot'] + cfg['queries'], data.shape[2]))
     for i in range(cfg['ways']):
         shuffle_indices = np.random.permutation(shuffle_indices)
         if generate:
-            dataset[i] = data[classes[i], shuffle_indices,
-                              :][:cfg['shot']+cfg['queries']]
+            dataset[i] = data[classes[i], shuffle_indices, :][:cfg['shot'] + cfg['queries']]
 
     return dataset
 
@@ -137,16 +139,15 @@ def GenerateRunSet(start=None, end=None, cfg=None):
     print("generating task from {} to {}".format(start, end))
 
     dataset = torch.zeros(
-        (end-start, cfg['ways'], cfg['shot']+cfg['queries'], data.shape[2]))
-    for iRun in range(end-start):
-        dataset[iRun] = GenerateRun(start+iRun, cfg)
+        (end - start, cfg['ways'], cfg['shot'] + cfg['queries'], data.shape[2]))
+    for iRun in tqdm(range(end - start), desc="Generate Run Set"):
+        dataset[iRun] = GenerateRun(start + iRun, cfg)
 
     return dataset
 
 
 # define a main code to test this module
 if __name__ == "__main__":
-
     print("Testing Task loader for Few Shot Learning")
     loadDataSet('miniimagenet')
 

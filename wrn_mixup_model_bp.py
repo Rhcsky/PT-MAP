@@ -1,12 +1,9 @@
 ### dropout has been removed in this code. original code had dropout#####
-import numpy as np
-import os
 import random
-import sys
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.init as init
 from torch.autograd import Variable
 
 act = torch.nn.ReLU()
@@ -123,6 +120,8 @@ class WideResNet(nn.Module):
         assert ((depth - 4) % 6 == 0)
         n = (depth - 4) / 6
         block = BasicBlock
+        bp_channel = 128
+
         # 1st conv before any network block
         self.conv1 = nn.Conv2d(3, nChannels[0], kernel_size=3, stride=1,
                                padding=1, bias=False)
@@ -132,16 +131,16 @@ class WideResNet(nn.Module):
         self.block2 = NetworkBlock(n, nChannels[1], nChannels[2], block, 2, dropRate)
         # 3rd block
         self.block3 = NetworkBlock(n, nChannels[2], nChannels[3], block, 2, dropRate)
-        # global average pooling and linear
-        self.bn1 = nn.BatchNorm2d(nChannels[3])
+
+        self.down_sampling = nn.Conv2d(nChannels[3], bp_channel, 1)
+        self.bn1 = nn.BatchNorm2d(bp_channel)
         self.relu = nn.ReLU(inplace=True)
-        self.nChannels = nChannels[3]
 
         if loss_type == 'softmax':
-            self.linear = nn.Linear(nChannels[3], int(num_classes))
+            self.linear = nn.Linear(bp_channel ** 2, int(num_classes))
             self.linear.bias.data.fill_(0)
         else:
-            self.linear = distLinear(nChannels[3], int(num_classes))
+            self.linear = distLinear(bp_channel ** 2, int(num_classes))
 
         self.num_classes = num_classes
         if flatten:
@@ -172,21 +171,29 @@ class WideResNet(nn.Module):
 
             out = self.conv1(out)
             out = self.block1(out)
+            print(f'conv1: {out.shape}')
 
             if layer_mix == 1:
                 out, target_a, target_b, lam = mixup_data(out, target, lam=lam)
 
             out = self.block2(out)
+            print(f'conv2: {out.shape}')
 
             if layer_mix == 2:
                 out, target_a, target_b, lam = mixup_data(out, target, lam=lam)
 
             out = self.block3(out)
+            print(f'conv3: {out.shape}')
             if layer_mix == 3:
                 out, target_a, target_b, lam = mixup_data(out, target, lam=lam)
 
+            out = self.down_sampling(out)
             out = self.relu(self.bn1(out))
-            out = F.avg_pool2d(out, out.size()[2:])
+            print(f'down sampling: {out.shape}')
+
+            out = self_bilinear_pooling(out)
+            print(f'sbp: {out.shape}')
+
             out = out.view(out.size(0), -1)
             out1 = self.linear(out)
 
@@ -197,11 +204,26 @@ class WideResNet(nn.Module):
             out = self.block1(out)
             out = self.block2(out)
             out = self.block3(out)
+
+            out = self.down_sampling(out)
             out = self.relu(self.bn1(out))
-            out = F.avg_pool2d(out, out.size()[2:])
+
+            out = self_bilinear_pooling(out)
+
             out = out.view(out.size(0), -1)
             out1 = self.linear(out)
             return out, out1
+
+
+@torch.no_grad()
+def self_bilinear_pooling(x):
+    x = torch.reshape(x, (x.size()[0], x.size()[1], x.size()[2] * x.size()[3]))
+
+    bilinear = torch.bmm(x, torch.transpose(x, 1, 2)) / (x.size()[2])
+    bilinear = torch.reshape(bilinear, (bilinear.shape[0], bilinear.shape[1] ** 2))
+    bilinear = torch.nn.functional.normalize(bilinear)
+
+    return bilinear
 
 
 def wrn28_10(num_classes=200, loss_type='dist'):

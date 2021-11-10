@@ -16,14 +16,15 @@ class SimpleDataset:
 
 
     def __getitem__(self,i):
-        image_path = os.path.join(self.meta['image_names'][i])
+        image_path = os.path.join(self.meta['image_data'][i])
+        image_path = os.path.join('/data/image_classification/cifar-FS', image_path)
         img = Image.open(image_path).convert('RGB')
         img = self.transform(img)
-        target = self.target_transform(self.meta['image_labels'][i])
+        target = self.target_transform(self.meta["class_dict"][i])
         return img, target
 
     def __len__(self):
-        return len(self.meta['image_names'])
+        return len(self.meta['image_data'])
 
 
 class SetDataset:
@@ -31,13 +32,13 @@ class SetDataset:
         with open(data_file, 'r') as f:
             self.meta = json.load(f)
  
-        self.cl_list = np.unique(self.meta['image_labels']).tolist()
+        self.cl_list = np.unique(self.meta['image_data']).tolist()
 
         self.sub_meta = {}
         for cl in self.cl_list:
             self.sub_meta[cl] = []
 
-        for x,y in zip(self.meta['image_names'],self.meta['image_labels']):
+        for x,y in zip(self.meta['class_dict'],self.meta['class_dict']):
             self.sub_meta[y].append(x)
 
         self.sub_dataloader = [] 
@@ -65,6 +66,7 @@ class SubDataset:
     def __getitem__(self,i):
         #print( '%d -%d' %(self.cl,i))
         image_path = os.path.join( self.sub_meta[i])
+        image_path = os.path.join('/data/image_classification/cifar-FS/', image_path)
         img = Image.open(image_path).convert('RGB')
         img = self.transform(img)
         target = self.target_transform(self.cl)
