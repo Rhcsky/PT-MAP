@@ -27,14 +27,14 @@ print('Current cuda device:', torch.cuda.current_device())
 print('Count of using GPUs:', torch.cuda.device_count())
 
 
-def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, params, tmp):
+def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, params, tmp, bp_channel):
     def mixup_criterion(criterion, pred, y_a, y_b, lam):
         return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
 
     criterion = nn.CrossEntropyLoss()
 
     if params.model == 'WideResNet28_10':
-        rotate_classifier = nn.Sequential(nn.Linear(640, 4))
+        rotate_classifier = nn.Sequential(nn.Linear(bp_channel ** 2, 4))
     elif params.model == 'ResNet18':
         rotate_classifier = nn.Sequential(nn.Linear(512, 4))
 
@@ -267,7 +267,7 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
 
 if __name__ == '__main__':
     params = parse_args('train')
-    params.method = 'rotation'
+    #params.method = 'rotation'
     params.resume = False
 
     params.dataset = 'cifar'
@@ -294,6 +294,7 @@ if __name__ == '__main__':
         raise ValueError()
 
     if params.method == 'S2M2_R':
+        model = DataParallel(model)
         model.to('cuda')
 
         if params.resume:
@@ -322,7 +323,7 @@ if __name__ == '__main__':
 
             model.load_state_dict(state)
 
-        model = train_s2m2(base_loader, base_loader_test, model, start_epoch, start_epoch + stop_epoch, params, {})
+        model = train_s2m2(base_loader, base_loader_test, model, start_epoch, start_epoch + stop_epoch, params, {}, bp_channel)
 
 
     elif params.method == 'rotation':

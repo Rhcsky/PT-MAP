@@ -176,28 +176,23 @@ class WideResNet(nn.Module):
 
             out = self.conv1(out)
             out = self.block1(out)
-            print(f'conv1: {out.shape}')
 
             if layer_mix == 1:
                 out, target_a, target_b, lam = mixup_data(out, target, lam=lam)
 
             out = self.block2(out)
-            print(f'conv2: {out.shape}')
 
             if layer_mix == 2:
                 out, target_a, target_b, lam = mixup_data(out, target, lam=lam)
 
             out = self.block3(out)
-            print(f'conv3: {out.shape}')
             if layer_mix == 3:
                 out, target_a, target_b, lam = mixup_data(out, target, lam=lam)
 
             out = self.down_sampling(out)
             out = self.relu(self.bn1(out))
-            print(f'down sampling: {out.shape}')
 
             out = self_bilinear_pooling(out)
-            print(f'sbp: {out.shape}')
 
             out = out.view(out.size(0), -1)
             out1 = self.linear(out)
