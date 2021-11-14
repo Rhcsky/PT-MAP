@@ -265,10 +265,20 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
     return model
 
 
+def pop_something(state):
+    state_keys = list(state.keys())
+
+    for i, key in enumerate(state_keys):
+        if "bn" in key or "linear" in key:
+            state.pop(key)
+
+    return state
+
+
 if __name__ == '__main__':
     params = parse_args('train')
-    #params.method = 'rotation'
-    params.resume = False
+    # params.method = 'rotation'
+    params.resume = True
 
     params.dataset = 'cifar'
     params.num_classes = 64
@@ -305,6 +315,8 @@ if __name__ == '__main__':
             print("restored epoch is", tmp['epoch'])
             state = tmp['state']
 
+            state = pop_something(state)
+
             model_dict_load = model.state_dict()
             model_dict_load.update(state)
             model.load_state_dict(model_dict_load)
@@ -323,7 +335,8 @@ if __name__ == '__main__':
 
             model.load_state_dict(state)
 
-        model = train_s2m2(base_loader, base_loader_test, model, start_epoch, start_epoch + stop_epoch, params, {}, bp_channel)
+        model = train_s2m2(base_loader, base_loader_test, model, start_epoch, start_epoch + stop_epoch, params, {},
+                           bp_channel)
 
 
     elif params.method == 'rotation':
