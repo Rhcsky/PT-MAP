@@ -6,9 +6,8 @@
 # the root directory of this source tree.
 from __future__ import print_function
 
-import os
-
 import numpy as np
+import os
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -270,6 +269,7 @@ if __name__ == '__main__':
     params.resume = True
 
     params.dataset = 'cifar'
+    params.num_classes = 64
     image_size = 84
 
     base_file = configs.data_dir[params.dataset] + 'base.json'
@@ -283,12 +283,12 @@ if __name__ == '__main__':
     base_loader_test = base_datamgr_test.get_data_loader(base_file, aug=False)
 
     if params.model == 'WideResNet28_10':
-        model = wrn_mixup_model.wrn28_10(num_classes=params.num_classes)
+        model = wrn_mixup_model.wrn28_10(num_classes=params.num_classes, loss_type='softmax')
     elif params.model == 'ResNet18':
         model = res_mixup_model.resnet18(num_classes=params.num_classes)
 
     if params.method == 'S2M2_R':
-        # model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
+        model = torch.nn.DataParallel(model)
         model.cuda()
 
         if params.resume:
