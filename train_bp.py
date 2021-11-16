@@ -277,8 +277,8 @@ def pop_something(state):
 
 if __name__ == '__main__':
     params = parse_args('train')
-    # params.method = 'rotation'
-    params.resume = True
+    params.method = 'rotation'
+    # params.resume = True
 
     params.dataset = 'cifar'
     params.num_classes = 64
@@ -297,7 +297,7 @@ if __name__ == '__main__':
     base_loader_test = base_datamgr_test.get_data_loader(base_file, aug=False)
 
     if params.model == 'WideResNet28_10':
-        model = wrn_mixup_model_bp.wrn28_10(num_classes=params.num_classes, loss_type='softmax', bp_channel=bp_channel)
+        model = wrn_mixup_model_bp.wrn28_10(num_classes=params.num_classes, bp_channel=bp_channel)
     elif params.model == 'ResNet18':
         model = res_mixup_model.resnet18(num_classes=params.num_classes)
     else:

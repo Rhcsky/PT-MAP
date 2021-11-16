@@ -3,5 +3,5 @@ windows:
   - window_name: window
     layout: tiled
     panes:
-      - CUDA_VISIBLE_DEVICES=0,1 pt train_bp.py --bp_channel=128
-#      - CUDA_VISIBLE_DEVICES=2 pt train_bp.py --bp_channel=64
+      - CUDA_VISIBLE_DEVICES=0 pt train_bp.py --bp_channel=64
+      - CUDA_VISIBLE_DEVICES=4 pt train.py

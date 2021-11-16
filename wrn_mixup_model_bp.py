@@ -137,7 +137,8 @@ class WideResNet(nn.Module):
         self.block3 = NetworkBlock(n, nChannels[2], nChannels[3], block, 2, dropRate)
 
         self.down_sampling = nn.Conv2d(nChannels[3], bp_channel, 1)
-        self.bn1 = nn.BatchNorm2d(bp_channel)
+        self.bn1 = nn.BatchNorm2d(nChannels[2])
+        self.bn2 = nn.BatchNorm2d(bp_channel)
         self.relu = nn.ReLU(inplace=True)
 
         if loss_type == 'softmax':
@@ -189,8 +190,9 @@ class WideResNet(nn.Module):
             if layer_mix == 3:
                 out, target_a, target_b, lam = mixup_data(out, target, lam=lam)
 
-            out = self.down_sampling(out)
             out = self.relu(self.bn1(out))
+            out = self.down_sampling(out)
+            out = self.relu(self.bn2(out))
 
             out = self_bilinear_pooling(out)
 
@@ -205,8 +207,9 @@ class WideResNet(nn.Module):
             out = self.block2(out)
             out = self.block3(out)
 
-            out = self.down_sampling(out)
             out = self.relu(self.bn1(out))
+            out = self.down_sampling(out)
+            out = self.relu(self.bn2(out))
 
             out = self_bilinear_pooling(out)
 
