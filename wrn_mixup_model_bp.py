@@ -137,15 +137,21 @@ class WideResNet(nn.Module):
         self.block3 = NetworkBlock(n, nChannels[2], nChannels[3], block, 2, dropRate)
 
         self.down_sampling = nn.Conv2d(nChannels[3], bp_channel, 1)
-        self.bn1 = nn.BatchNorm2d(nChannels[2])
-        self.bn2 = nn.BatchNorm2d(bp_channel)
+
+        self.bn1 = nn.BatchNorm2d(nChannels[3])
+        self.bn2 = nn.BatchNorm2d(nChannels[3])
+        self.bn3 = nn.BatchNorm2d(bp_channel)
+
         self.relu = nn.ReLU(inplace=True)
 
         if loss_type == 'softmax':
-            self.linear = nn.Linear(bp_channel ** 2, int(num_classes))
+            self.linear = nn.Linear(1024, int(num_classes))
             self.linear.bias.data.fill_(0)
         else:
-            self.linear = distLinear(bp_channel ** 2, int(num_classes))
+            self.linear = distLinear(1024, int(num_classes))
+
+        self.linear_t = nn.Linear(4096, 1024)
+        self.bn_t = nn.BatchNorm1d(1024)
 
         self.num_classes = num_classes
         if flatten:
@@ -190,11 +196,15 @@ class WideResNet(nn.Module):
             if layer_mix == 3:
                 out, target_a, target_b, lam = mixup_data(out, target, lam=lam)
 
-            out = self.relu(self.bn1(out))
-            out = self.down_sampling(out)
+            # out = self.relu(self.bn1(out))
+            # out = F.avg_pool2d(out, 3)
             out = self.relu(self.bn2(out))
 
+            out = self.down_sampling(out)
+            out = self.relu(self.bn3(out))
             out = self_bilinear_pooling(out)
+            # rm2
+            # out = self.relu(self.bn_t(self.linear_t(out)))
 
             out = out.view(out.size(0), -1)
             out1 = self.linear(out)
@@ -208,10 +218,13 @@ class WideResNet(nn.Module):
             out = self.block3(out)
 
             out = self.relu(self.bn1(out))
-            out = self.down_sampling(out)
+            out = F.avg_pool2d(out, 3)
             out = self.relu(self.bn2(out))
 
+            out = self.down_sampling(out)
             out = self_bilinear_pooling(out)
+            # rm2
+            out = self.relu(self.bn_t(self.linear_t(out)))
 
             out = out.view(out.size(0), -1)
             out1 = self.linear(out)

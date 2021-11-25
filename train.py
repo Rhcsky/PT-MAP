@@ -6,8 +6,9 @@
 # the root directory of this source tree.
 from __future__ import print_function
 
-import numpy as np
 import os
+
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -21,6 +22,8 @@ from io_utils import parse_args, get_resume_file
 use_gpu = torch.cuda.is_available()
 image_size = 84
 
+device = 'cuda'
+
 
 def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, params, tmp):
     def mixup_criterion(criterion, pred, y_a, y_b, lam):
@@ -33,7 +36,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
     elif params.model == 'ResNet18':
         rotate_classifier = nn.Sequential(nn.Linear(512, 4))
 
-    rotate_classifier.cuda()
+    rotate_classifier.to(device)
 
     if 'rotate' in tmp:
         print("loading rotate model")
@@ -58,7 +61,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
 
         for batch_idx, (inputs, targets) in enumerate(base_loader):
             if use_gpu:
-                inputs, targets = inputs.cuda(), targets.cuda()
+                inputs, targets = inputs.to(device), targets.to(device)
             lam = np.random.beta(params.alpha, params.alpha)
             f, outputs, target_a, target_b = model(inputs, targets, mixup_hidden=True, mixup_alpha=params.alpha,
                                                    lam=lam)
@@ -93,9 +96,9 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
             a_ = Variable(torch.stack(a_, 0))
 
             if use_gpu:
-                inputs = inputs.cuda()
-                targets = targets.cuda()
-                a_ = a_.cuda()
+                inputs = inputs.to(device)
+                targets = targets.to(device)
+                a_ = a_.to(device)
 
             rf, outputs = model(inputs)
             rotate_outputs = rotate_classifier(rf)
@@ -120,7 +123,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
 
         if (epoch % params.save_freq == 0) or (epoch == stop_epoch - 1):
             outfile = os.path.join(params.checkpoint_dir, '{:d}.tar'.format(epoch))
-            torch.save({'epoch': epoch, 'state': model.state_dict()}, outfile)
+            torch.save({'epoch': epoch, 'state': model.module.state_dict()}, outfile)
 
         model.eval()
         with torch.no_grad():
@@ -129,7 +132,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
             total = 0
             for batch_idx, (inputs, targets) in enumerate(base_loader_test):
                 if use_gpu:
-                    inputs, targets = inputs.cuda(), targets.cuda()
+                    inputs, targets = inputs.to(device), targets.to(device)
                 inputs, targets = Variable(inputs), Variable(targets)
                 f, outputs = model.forward(inputs)
                 loss = criterion(outputs, targets)
@@ -151,7 +154,7 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
         rotate_classifier = nn.Sequential(nn.Linear(512, 4))
 
     if use_gpu:
-        rotate_classifier.cuda()
+        rotate_classifier.to(device)
 
     if 'rotate' in tmp:
         print("loading rotate model")
@@ -192,9 +195,9 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
             a_ = Variable(torch.stack(a_, 0))
 
             if use_gpu:
-                x_ = x_.cuda()
-                y_ = y_.cuda()
-                a_ = a_.cuda()
+                x_ = x_.to(device)
+                y_ = y_.to(device)
+                a_ = a_.to(device)
 
             f, scores = model.forward(x_)
             rotate_scores = rotate_classifier(f)
@@ -209,7 +212,7 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
             avg_loss = avg_loss + closs.data.item()
             avg_rloss = avg_rloss + rloss.data.item()
 
-            if i % 50 == 0:
+            if i % 100 == 0:
                 print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f} | Rotate Loss {:f}'.format(epoch, i, len(base_loader),
                                                                                            avg_loss / float(i + 1),
                                                                                            avg_rloss / float(i + 1)))
@@ -219,7 +222,8 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
 
         if (epoch % params.save_freq == 0) or (epoch == stop_epoch - 1):
             outfile = os.path.join(params.checkpoint_dir, '{:d}.tar'.format(epoch))
-            torch.save({'epoch': epoch, 'state': model.state_dict(), 'rotate': rotate_classifier.state_dict()}, outfile)
+            torch.save({'epoch': epoch, 'state': model.module.state_dict(), 'rotate': rotate_classifier.state_dict()},
+                       outfile)
 
         model.eval()
         rotate_classifier.eval()
@@ -245,9 +249,9 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
                     a_ = Variable(torch.stack(a_, 0))
 
                     if use_gpu:
-                        x_ = x_.cuda()
-                        y_ = y_.cuda()
-                        a_ = a_.cuda()
+                        x_ = x_.to(device)
+                        y_ = y_.to(device)
+                        a_ = a_.to(device)
 
                     f, scores = model(x_)
                     rotate_scores = rotate_classifier(f)
@@ -290,7 +294,7 @@ if __name__ == '__main__':
 
     if params.method == 'S2M2_R':
         model = torch.nn.DataParallel(model)
-        model.cuda()
+        model.to(device)
 
         if params.resume:
             resume_file = get_resume_file(params.checkpoint_dir)
@@ -328,10 +332,8 @@ if __name__ == '__main__':
 
 
     elif params.method == 'rotation':
-        if use_gpu:
-            if torch.cuda.device_count() > 1:
-                model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
-            model.cuda()
+        model = torch.nn.DataParallel(model)
+        model.to(device)
 
         if params.resume:
             resume_file = get_resume_file(params.checkpoint_dir)
