@@ -196,9 +196,9 @@ class WideResNet(nn.Module):
             if layer_mix == 3:
                 out, target_a, target_b, lam = mixup_data(out, target, lam=lam)
 
-            # out = self.relu(self.bn1(out))
+            out = self.relu(self.bn1(out))
             # out = F.avg_pool2d(out, 3)
-            out = self.relu(self.bn2(out))
+            # out = self.relu(self.bn2(out))
 
             out = self.down_sampling(out)
             out = self.relu(self.bn3(out))
@@ -231,7 +231,6 @@ class WideResNet(nn.Module):
             return out, out1
 
 
-@torch.no_grad()
 def self_bilinear_pooling(x):
     x = torch.reshape(x, (x.size()[0], x.size()[1], x.size()[2] * x.size()[3]))
 
