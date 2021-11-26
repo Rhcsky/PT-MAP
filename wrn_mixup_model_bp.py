@@ -145,10 +145,10 @@ class WideResNet(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
         if loss_type == 'softmax':
-            self.linear = nn.Linear(1024, int(num_classes))
+            self.linear = nn.Linear(4096, int(num_classes))
             self.linear.bias.data.fill_(0)
         else:
-            self.linear = distLinear(1024, int(num_classes))
+            self.linear = distLinear(4096, int(num_classes))
 
         self.linear_t = nn.Linear(4096, 1024)
         self.bn_t = nn.BatchNorm1d(1024)
@@ -218,16 +218,18 @@ class WideResNet(nn.Module):
             out = self.block3(out)
 
             out = self.relu(self.bn1(out))
-            out = F.avg_pool2d(out, 3)
-            out = self.relu(self.bn2(out))
+            # out = F.avg_pool2d(out, 3)
+            # out = self.relu(self.bn2(out))
 
             out = self.down_sampling(out)
+            out = self.relu(self.bn3(out))
             out = self_bilinear_pooling(out)
             # rm2
-            out = self.relu(self.bn_t(self.linear_t(out)))
+            # out = self.relu(self.bn_t(self.linear_t(out)))
 
             out = out.view(out.size(0), -1)
             out1 = self.linear(out)
+
             return out, out1
 
 
@@ -241,7 +243,7 @@ def self_bilinear_pooling(x):
     return bilinear
 
 
-def wrn28_10(num_classes=200, loss_type='dist', bp_channel='128'):
+def wrn28_10(num_classes=200, loss_type='dist', bp_channel=128):
     model = WideResNet(depth=28, widen_factor=10, num_classes=num_classes, loss_type=loss_type, per_img_std=False,
                        stride=1, bp_channel=bp_channel)
     return model

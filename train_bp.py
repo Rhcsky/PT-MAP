@@ -149,7 +149,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
 
 def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch, params, tmp, bp_channel):
     if params.model == 'WideResNet28_10':
-        rotate_classifier = nn.Sequential(nn.Linear(1024, 4))
+        rotate_classifier = nn.Sequential(nn.Linear(4096, 4))
     elif params.model == 'ResNet18':
         rotate_classifier = nn.Sequential(nn.Linear(512, 4))
 
