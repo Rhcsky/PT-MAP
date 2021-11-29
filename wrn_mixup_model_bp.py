@@ -135,23 +135,22 @@ class WideResNet(nn.Module):
         self.block2 = NetworkBlock(n, nChannels[1], nChannels[2], block, 2, dropRate)
         # 3rd block
         self.block3 = NetworkBlock(n, nChannels[2], nChannels[3], block, 2, dropRate)
-
-        self.down_sampling = nn.Conv2d(nChannels[3], bp_channel, 1)
-
+        # global average pooling and linear
         self.bn1 = nn.BatchNorm2d(nChannels[3])
-        self.bn2 = nn.BatchNorm2d(nChannels[3])
-        self.bn3 = nn.BatchNorm2d(bp_channel)
-
         self.relu = nn.ReLU(inplace=True)
 
+        self.bp_conv = nn.Conv2d(nChannels[3], bp_channel, 1)
+        self.bp_bn = nn.BatchNorm2d(bp_channel)
+
+        self.linear_b = nn.Linear(bp_channel ** 2, bp_channel ** 2)
+        self.bn_b = nn.BatchNorm1d(bp_channel ** 2)
+        self.relu_b = nn.ReLU(inplace=True)
+
         if loss_type == 'softmax':
-            self.linear = nn.Linear(4096, int(num_classes))
+            self.linear = nn.Linear(bp_channel ** 2, int(num_classes))
             self.linear.bias.data.fill_(0)
         else:
-            self.linear = distLinear(4096, int(num_classes))
-
-        self.linear_t = nn.Linear(4096, 1024)
-        self.bn_t = nn.BatchNorm1d(1024)
+            self.linear = distLinear(bp_channel ** 2, int(num_classes))
 
         self.num_classes = num_classes
         if flatten:
@@ -196,15 +195,12 @@ class WideResNet(nn.Module):
             if layer_mix == 3:
                 out, target_a, target_b, lam = mixup_data(out, target, lam=lam)
 
-            out = self.relu(self.bn1(out))
-            # out = F.avg_pool2d(out, 3)
-            # out = self.relu(self.bn2(out))
+            # out = self.relu(self.bn1(out))
 
-            out = self.down_sampling(out)
-            out = self.relu(self.bn3(out))
+            out = self.bp_bn(self.bp_conv(out))
+
             out = self_bilinear_pooling(out)
-            # rm2
-            # out = self.relu(self.bn_t(self.linear_t(out)))
+            out = self.relu_b(self.bn_b(self.linear_b(out)))
 
             out = out.view(out.size(0), -1)
             out1 = self.linear(out)
@@ -217,15 +213,12 @@ class WideResNet(nn.Module):
             out = self.block2(out)
             out = self.block3(out)
 
-            out = self.relu(self.bn1(out))
-            # out = F.avg_pool2d(out, 3)
-            # out = self.relu(self.bn2(out))
+            # out = self.relu(self.bn1(out))
 
-            out = self.down_sampling(out)
-            out = self.relu(self.bn3(out))
+            out = self.bp_bn(self.bp_conv(out))
+
             out = self_bilinear_pooling(out)
-            # rm2
-            # out = self.relu(self.bn_t(self.linear_t(out)))
+            out = self.relu_b(self.bn_b(self.linear_b(out)))
 
             out = out.view(out.size(0), -1)
             out1 = self.linear(out)

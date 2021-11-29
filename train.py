@@ -11,6 +11,7 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
+import wandb
 from torch.autograd import Variable
 
 import configs
@@ -217,6 +218,12 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
                                                                                            avg_loss / float(i + 1),
                                                                                            avg_rloss / float(i + 1)))
 
+
+                wandb.log({'Loss': avg_loss / float(i + 1),
+                           'Rotate Loss': avg_rloss / float(i + 1),
+                           })
+
+
         if not os.path.isdir(params.checkpoint_dir):
             os.makedirs(params.checkpoint_dir)
 
@@ -263,6 +270,13 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
 
             print("Epoch {0} : Accuracy {1}, Rotate Accuracy {2}".format(epoch, (float(correct) * 100) / total,
                                                                          (float(rcorrect) * 100) / total))
+
+            wandb.log({
+                'Accuracy': (float(correct) * 100) / total,
+                'RotateAccuracy': (float(rcorrect) * 100) / total,
+            })
+
+
         torch.cuda.empty_cache()
 
     return model
@@ -276,6 +290,10 @@ if __name__ == '__main__':
     params.dataset = 'cifar'
     params.num_classes = 64
     image_size = 84
+
+    wandb.init(project="PT-MAP", tags='PT-MAP')
+    wandb.run.name = 'original'
+    wandb.config.update(params)
 
     base_file = configs.data_dir[params.dataset] + 'base.json'
     params.checkpoint_dir = '%s/checkpoints/%s/%s_%s' % (configs.save_dir, params.dataset, params.model, params.method)

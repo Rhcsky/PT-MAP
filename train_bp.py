@@ -11,9 +11,9 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
+import wandb
 from torch.autograd import Variable
 from torch.cuda.amp import autocast, GradScaler
-from torch.nn import DataParallel
 
 import configs
 import res_mixup_model
@@ -21,12 +21,7 @@ import wrn_mixup_model_bp
 from data.datamgr import SimpleDataManager
 from io_utils import parse_args, get_resume_file
 
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-print('Device:', device)
-print('Current cuda device:', torch.cuda.current_device())
-print('Count of using GPUs:', torch.cuda.device_count())
 
 
 def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, params, tmp, bp_channel):
@@ -36,7 +31,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
     criterion = nn.CrossEntropyLoss()
 
     if params.model == 'WideResNet28_10':
-        rotate_classifier = nn.Sequential(nn.Linear(1024, 4))
+        rotate_classifier = nn.Sequential(nn.Linear(bp_channel ** 2, 4))
     elif params.model == 'ResNet18':
         rotate_classifier = nn.Sequential(nn.Linear(512, 4))
 
@@ -149,7 +144,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
 
 def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch, params, tmp, bp_channel):
     if params.model == 'WideResNet28_10':
-        rotate_classifier = nn.Sequential(nn.Linear(4096, 4))
+        rotate_classifier = nn.Sequential(nn.Linear(bp_channel ** 2, 4))
     elif params.model == 'ResNet18':
         rotate_classifier = nn.Sequential(nn.Linear(512, 4))
 
@@ -218,6 +213,10 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
                                                                                            avg_loss / float(i + 1),
                                                                                            avg_rloss / float(i + 1)))
 
+                wandb.log({'Loss': avg_loss / float(i + 1),
+                           'Rotate Loss': avg_rloss / float(i + 1),
+                           })
+
         if not os.path.isdir(params.checkpoint_dir):
             os.makedirs(params.checkpoint_dir)
 
@@ -265,6 +264,11 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
             print("Epoch {0} : Accuracy {1}, Rotate Accuracy {2}".format(epoch, (float(correct) * 100) / total,
                                                                          (float(rcorrect) * 100) / total))
 
+            wandb.log({
+                'Accuracy': (float(correct) * 100) / total,
+                'RotateAccuracy': (float(rcorrect) * 100) / total,
+            })
+
     return model
 
 
@@ -287,6 +291,10 @@ if __name__ == '__main__':
     params.num_classes = 64
     image_size = 84
 
+    wandb.init(project="PT-MAP", tags='PT-MAP')
+    wandb.run.name = params.name
+    wandb.config.update(params)
+
     bp_channel = int(params.bp_channel)
 
     base_file = configs.data_dir[params.dataset] + 'base.json'
@@ -307,7 +315,7 @@ if __name__ == '__main__':
         raise ValueError()
 
     if params.method == 'S2M2_R':
-        model = DataParallel(model)
+        # model = DataParallel(model)
         model.to('cuda')
 
         if params.resume:
@@ -343,7 +351,7 @@ if __name__ == '__main__':
 
 
     elif params.method == 'rotation':
-        model = DataParallel(model)
+        # model = DataParallel(model)
         model.to('cuda')
 
         if params.resume:

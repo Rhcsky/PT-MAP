@@ -6,8 +6,10 @@ import os
 
 def parse_args(script):
     parser = argparse.ArgumentParser(description='few-shot script %s' % (script))
+
+    parser.add_argument('--name', default='None')
     parser.add_argument('--dataset', default='miniImagenet', help='CUB/miniImagenet')
-    parser.add_argument('--bp_channel', default='128', help='bp channel')
+    parser.add_argument('--bp_channel', default=128, help='bp channel')
     parser.add_argument('--model', default='WideResNet28_10', help='model:  WideResNet28_10/ResNet{18}')
     parser.add_argument('--method', default='S2M2_R', help='rotation/S2M2_R')
     parser.add_argument('--train_aug', action='store_true',
