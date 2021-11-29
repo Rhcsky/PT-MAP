@@ -8,6 +8,7 @@ pre_runs*/*
 checkpoints/
 .ipynb_checkpoints/
 cache/
+wandb/
 
 # Except
 !data/vinyals
