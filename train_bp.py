@@ -119,7 +119,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
 
         if (epoch % params.save_freq == 0) or (epoch == stop_epoch - 1):
             outfile = os.path.join(params.checkpoint_dir, '{:d}.tar'.format(epoch))
-            torch.save({'epoch': epoch, 'state': model.module.state_dict()}, outfile)
+            torch.save({'epoch': epoch, 'state': model.state_dict()}, outfile)
 
         model.eval()
         with torch.no_grad():
@@ -222,7 +222,7 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
 
         if (epoch % params.save_freq == 0) or (epoch == stop_epoch - 1):
             outfile = os.path.join(params.checkpoint_dir, '{:d}.tar'.format(epoch))
-            torch.save({'epoch': epoch, 'state': model.module.state_dict(), 'rotate': rotate_classifier.state_dict()},
+            torch.save({'epoch': epoch, 'state': model.state_dict(), 'rotate': rotate_classifier.state_dict()},
                        outfile)
 
         model.eval()

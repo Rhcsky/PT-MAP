@@ -195,7 +195,7 @@ class WideResNet(nn.Module):
             if layer_mix == 3:
                 out, target_a, target_b, lam = mixup_data(out, target, lam=lam)
 
-            # out = self.relu(self.bn1(out))
+            out = self.relu(self.bn1(out))
 
             out = self.bp_bn(self.bp_conv(out))
 
@@ -213,7 +213,7 @@ class WideResNet(nn.Module):
             out = self.block2(out)
             out = self.block3(out)
 
-            # out = self.relu(self.bn1(out))
+            out = self.relu(self.bn1(out))
 
             out = self.bp_bn(self.bp_conv(out))
 
