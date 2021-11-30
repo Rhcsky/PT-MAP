@@ -11,12 +11,12 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
-import wandb
 from torch.autograd import Variable
 from torch.cuda.amp import autocast, GradScaler
 
 import configs
 import res_mixup_model
+import wandb
 import wrn_mixup_model_bp
 from data.datamgr import SimpleDataManager
 from io_utils import parse_args, get_resume_file
@@ -45,6 +45,8 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
         {'params': model.parameters()},
         {'params': rotate_classifier.parameters()}
     ])
+
+    scaler = GradScaler()
 
     print("stop_epoch", start_epoch, stop_epoch)
 
@@ -97,22 +99,30 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
             a_ = a_.to('cuda')
 
             rf, outputs = model(inputs)
-            rotate_outputs = rotate_classifier(rf)
-            rloss = criterion(rotate_outputs, a_)
-            closs = criterion(outputs, targets)
-            loss = (rloss + closs) / 2.0
+
+            with autocast():
+                rotate_outputs = rotate_classifier(rf)
+                rloss = criterion(rotate_outputs, a_)
+                closs = criterion(outputs, targets)
+                loss = (rloss + closs) / 2.0
 
             rotate_loss += rloss.data.item()
 
-            loss.backward()
-
-            optimizer.step()
+            optimizer.zero_grad()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             if batch_idx % 100 == 0:
                 print('{0}/{1}'.format(batch_idx, len(base_loader)),
                       'Loss: %.3f | Acc: %.3f%% | RotLoss: %.3f  '
                       % (train_loss / (batch_idx + 1),
                          100. * correct / total, rotate_loss / (batch_idx + 1)))
+
+                wandb.log({'Loss': train_loss / (batch_idx + 1),
+                           'Accuracy': 100. * correct / total,
+                           'RotLoss': rotate_loss / (batch_idx + 1),
+                           })
 
         if not os.path.isdir(params.checkpoint_dir):
             os.makedirs(params.checkpoint_dir)
@@ -138,6 +148,9 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
 
             print('Loss: %.3f | Acc: %.3f%%'
                   % (test_loss / (batch_idx + 1), 100. * correct / total))
+            wandb.log({'Test Loss': test_loss / (batch_idx + 1),
+                       'Test Accuracy': 100. * correct / total,
+                       })
 
     return model
 
@@ -284,7 +297,7 @@ def pop_something(state):
 
 if __name__ == '__main__':
     params = parse_args('train')
-    params.method = 'rotation'
+    params.method = 'S2M2_R'
     # params.resume = True
 
     params.dataset = 'cifar'
