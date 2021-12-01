@@ -19,7 +19,7 @@ import res_mixup_model
 import wandb
 import wrn_mixup_model_bp
 from data.datamgr import SimpleDataManager
-from io_utils import parse_args, get_resume_file
+from io_utils import parse_args, get_resume_file, get_specific_resume_file
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -186,6 +186,7 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
         avg_rloss = 0
 
         for i, (x, y) in enumerate(base_loader):
+            x,y = x.to('cuda'), y.to('cuda')
             bs = x.size(0)
             x_ = []
             y_ = []
@@ -349,7 +350,9 @@ if __name__ == '__main__':
 
         else:
             resume_rotate_file_dir = params.checkpoint_dir.replace("S2M2_R", "rotation")
-            resume_file = get_resume_file(resume_rotate_file_dir)
+            # resume_file = get_resume_file(resume_rotate_file_dir)
+            resume_file = get_specific_resume_file(resume_rotate_file_dir, 'bp')
+
             print("resume_file", resume_file)
             tmp = torch.load(resume_file)
             start_epoch = tmp['epoch'] + 1

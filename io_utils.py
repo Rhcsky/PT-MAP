@@ -50,6 +50,16 @@ def get_resume_file(checkpoint_dir):
     resume_file = os.path.join(checkpoint_dir, '{:d}.tar'.format(max_epoch))
     return resume_file
 
+def get_specific_resume_file(checkpoint_dir, name):
+    filelist = glob.glob(os.path.join(checkpoint_dir, '*.tar'))
+    if len(filelist) == 0:
+        return None
+
+    for f in filelist:
+        if name in f:
+            file_name = f
+
+    return file_name
 
 def get_best_file(checkpoint_dir):
     best_file = os.path.join(checkpoint_dir, 'best.tar')

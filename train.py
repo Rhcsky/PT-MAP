@@ -18,7 +18,7 @@ import configs
 import res_mixup_model
 import wrn_mixup_model
 from data.datamgr import SimpleDataManager
-from io_utils import parse_args, get_resume_file
+from io_utils import parse_args, get_resume_file, get_specific_resume_file
 
 use_gpu = torch.cuda.is_available()
 image_size = 84
@@ -284,7 +284,7 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
 
 if __name__ == '__main__':
     params = parse_args('train')
-    params.method = 'rotation'
+    params.method = 'S2M2_R'
     # params.resume = True
 
     params.dataset = 'cifar'
@@ -311,7 +311,7 @@ if __name__ == '__main__':
         model = res_mixup_model.resnet18(num_classes=params.num_classes)
 
     if params.method == 'S2M2_R':
-        model = torch.nn.DataParallel(model)
+        # model = torch.nn.DataParallel(model)
         model.to(device)
 
         if params.resume:
@@ -328,7 +328,9 @@ if __name__ == '__main__':
 
         else:
             resume_rotate_file_dir = params.checkpoint_dir.replace("S2M2_R", "rotation")
-            resume_file = get_resume_file(resume_rotate_file_dir)
+            # resume_file = get_resume_file(resume_rotate_file_dir)
+            resume_file = get_specific_resume_file(resume_rotate_file_dir, 'ori')
+            
             print("resume_file", resume_file)
             tmp = torch.load(resume_file)
             start_epoch = tmp['epoch'] + 1
