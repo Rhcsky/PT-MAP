@@ -11,11 +11,11 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
-import wandb
 from torch.autograd import Variable
 
 import configs
 import res_mixup_model
+import wandb
 import wrn_mixup_model
 from data.datamgr import SimpleDataManager
 from io_utils import parse_args, get_resume_file, get_specific_resume_file
@@ -119,6 +119,12 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
                       % (train_loss / (batch_idx + 1),
                          100. * correct / total, rotate_loss / (batch_idx + 1)))
 
+                wandb.log({
+                    'Train Accuracy': 100. * correct / total,
+                    'Train Loss': train_loss / (batch_idx + 1),
+                    'Train Rotate Loss': rotate_loss / (batch_idx + 1),
+                })
+
         if not os.path.isdir(params.checkpoint_dir):
             os.makedirs(params.checkpoint_dir)
 
@@ -144,6 +150,11 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
 
             print('Loss: %.3f | Acc: %.3f%%'
                   % (test_loss / (batch_idx + 1), 100. * correct / total))
+
+            wandb.log({
+                'Test Accuracy': 100. * correct / total,
+                'Test Loss': test_loss / (batch_idx + 1),
+            })
 
     return model
 
@@ -218,11 +229,9 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
                                                                                            avg_loss / float(i + 1),
                                                                                            avg_rloss / float(i + 1)))
 
-
-                wandb.log({'Loss': avg_loss / float(i + 1),
-                           'Rotate Loss': avg_rloss / float(i + 1),
+                wandb.log({'Train Loss': avg_loss / float(i + 1),
+                           'Train Rotate Loss': avg_rloss / float(i + 1),
                            })
-
 
         if not os.path.isdir(params.checkpoint_dir):
             os.makedirs(params.checkpoint_dir)
@@ -272,10 +281,9 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
                                                                          (float(rcorrect) * 100) / total))
 
             wandb.log({
-                'Accuracy': (float(correct) * 100) / total,
-                'RotateAccuracy': (float(rcorrect) * 100) / total,
+                'Test Accuracy': (float(correct) * 100) / total,
+                'Test Rotate Accuracy': (float(rcorrect) * 100) / total,
             })
-
 
         torch.cuda.empty_cache()
 
@@ -284,15 +292,15 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
 
 if __name__ == '__main__':
     params = parse_args('train')
-    params.method = 'S2M2_R'
+    # params.method = 'S2M2_R'
+    params.method = 'rotation'
     # params.resume = True
 
     params.dataset = 'cifar'
     params.num_classes = 64
     image_size = 84
 
-    wandb.init(project="PT-MAP", tags='PT-MAP')
-    wandb.run.name = 'original'
+    wandb.init(project=params.method, tags=params.method, name=params.name)
     wandb.config.update(params)
 
     base_file = configs.data_dir[params.dataset] + 'base.json'
@@ -330,7 +338,7 @@ if __name__ == '__main__':
             resume_rotate_file_dir = params.checkpoint_dir.replace("S2M2_R", "rotation")
             # resume_file = get_resume_file(resume_rotate_file_dir)
             resume_file = get_specific_resume_file(resume_rotate_file_dir, 'ori')
-            
+
             print("resume_file", resume_file)
             tmp = torch.load(resume_file)
             start_epoch = tmp['epoch'] + 1

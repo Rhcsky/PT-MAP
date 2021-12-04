@@ -186,7 +186,7 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
         avg_rloss = 0
 
         for i, (x, y) in enumerate(base_loader):
-            x,y = x.to('cuda'), y.to('cuda')
+            x, y = x.to('cuda'), y.to('cuda')
             bs = x.size(0)
             x_ = []
             y_ = []
@@ -298,15 +298,15 @@ def pop_something(state):
 
 if __name__ == '__main__':
     params = parse_args('train')
-    params.method = 'S2M2_R'
+    # params.method = 'S2M2_R'
+    params.method = 'rotation'
     # params.resume = True
 
     params.dataset = 'cifar'
     params.num_classes = 64
     image_size = 84
 
-    wandb.init(project="PT-MAP", tags='PT-MAP')
-    wandb.run.name = params.name
+    wandb.init(project=params.method, tags=params.method, name=params.name)
     wandb.config.update(params)
 
     bp_channel = int(params.bp_channel)
@@ -329,7 +329,6 @@ if __name__ == '__main__':
         raise ValueError()
 
     if params.method == 'S2M2_R':
-        # model = DataParallel(model)
         model.to('cuda')
 
         if params.resume:
@@ -367,7 +366,6 @@ if __name__ == '__main__':
 
 
     elif params.method == 'rotation':
-        # model = DataParallel(model)
         model.to('cuda')
 
         if params.resume:
@@ -379,4 +377,5 @@ if __name__ == '__main__':
             state = tmp['state']
             model.load_state_dict(state)
 
+        params.checkpoint_dir = os.path.join(params.checkpoint_dir, "BP")
         model = train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch, params, {}, bp_channel)
