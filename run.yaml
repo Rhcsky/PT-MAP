@@ -1,8 +1,7 @@
-session_name: pt-map
+session_name: s2m2r
 windows:
   - window_name: window
     layout: tiled
     panes:
-      - CUDA_VISIBLE_DEVICES=6 pt train.py
-      - CUDA_VISIBLE_DEVICES=8 pt train_bp.py
-      -
+      - CUDA_VISIBLE_DEVICES=5 pt train.py --name origin
+      - CUDA_VISIBLE_DEVICES=7 pt train_bp.py --name bp
