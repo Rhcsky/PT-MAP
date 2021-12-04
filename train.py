@@ -122,7 +122,7 @@ def train_s2m2(base_loader, base_loader_test, model, start_epoch, stop_epoch, pa
                 wandb.log({
                     'Train Accuracy': 100. * correct / total,
                     'Train Loss': train_loss / (batch_idx + 1),
-                    'Train Rotate Loss': rotate_loss / (batch_idx + 1),
+                    'Train Rot Loss': rotate_loss / (batch_idx + 1),
                 })
 
         if not os.path.isdir(params.checkpoint_dir):
@@ -230,7 +230,7 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
                                                                                            avg_rloss / float(i + 1)))
 
                 wandb.log({'Train Loss': avg_loss / float(i + 1),
-                           'Train Rotate Loss': avg_rloss / float(i + 1),
+                           'Train Rot Loss': avg_rloss / float(i + 1),
                            })
 
         if not os.path.isdir(params.checkpoint_dir):
@@ -282,7 +282,7 @@ def train_rotation(base_loader, base_loader_test, model, start_epoch, stop_epoch
 
             wandb.log({
                 'Test Accuracy': (float(correct) * 100) / total,
-                'Test Rotate Accuracy': (float(rcorrect) * 100) / total,
+                'Test Rot Accuracy': (float(rcorrect) * 100) / total,
             })
 
         torch.cuda.empty_cache()
